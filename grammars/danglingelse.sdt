@@ -1,0 +1,26 @@
+IDENT danglingelse;
+TITLE "Grammar for Dangling Else";
+
+OPTIONS
+   ambiguous, shiftreduce;
+
+SCANNER
+   "if";
+   "then";
+   "else", associativity = right;
+   "id";
+
+PARSER
+   <stmt> -->
+	<expr>
+      | <if stmt>
+   ;
+
+   <if stmt> -->
+	"if" <expr> "then" <stmt>
+      | "if" <expr> "then" <stmt> "else" <stmt>
+   ;
+
+   <expr> -->
+	"id"
+   ;

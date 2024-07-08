@@ -1,0 +1,644 @@
+IDENT ANSI_C;
+TITLE "ANSI C Grammar Adapted from https://www.quut.com/c";
+
+OPTIONS
+   ambiguous, errorrepair, shiftreduce;
+
+DEFINE
+   DECEXPONENT  = [Ee] [+-]? [0-9]+;
+   HEXEXPONENT  = [Pp] [+-]? [0-9]+;
+   FLOATSIZE    = [fFlL];
+   INTSIZE      = [uU] ("l" | "L" | "ll" | "LL")? | ("l" | "L" | "ll" | "LL") [uU]?;
+   CHARPREFIX   = [uUL];
+   STRINGPREFIX = "u8" | [uUL];
+   ESCAPE       = "\\" (['"\?\\abfnrtv] | {[0-7]} 1:3 | "x" [a-fA-F0-9]+);
+   WHITESPACE   = [ \t\v\n\f];
+
+SCANNER
+   "auto";
+   "break";
+   "case";
+   "char";
+   "const";
+   "continue";
+   "default";
+   "do";
+   "double";
+   "else", precedence=1;
+   "enum";
+   "extern";
+   "float";
+   "for";
+   "goto";
+   "if";
+   "inline";
+   "int";
+   "long";
+   "register";
+   "restrict";
+   "return";
+   "short";
+   "signed";
+   "sizeof";
+   "static";
+   "struct";
+   "switch";
+   "typedef";
+   "union";
+   "unsigned";
+   "void";
+   "volatile";
+   "while";
+   "_Alignas";
+   "_Alignof";
+   "_Atomic", precedence=2;
+   "_Bool";
+   "_Complex";
+   "_Generic";
+   "_Imaginary";
+   "_Noreturn";
+   "_Static_assert";
+   "_Thread_local";
+   "__func__";
+
+   "identifier"           = [a-zA-Z_] [a-zA-Z_0-9]*, install;	% All of these are the same regular expression
+   "typedef name"         = [a-zA-Z_] [a-zA-Z_0-9]*, install;	% so the scanner will only return "identifier"
+   "enumeration constant" = [a-zA-Z_] [a-zA-Z_0-9]*, install;	% the other two must be handled by install_token()
+
+   "integer constant" = "0"[xX] [a-fA-F0-9]+ INTSIZE?
+	        | [1-9] [0-9]* INTSIZE?
+	        | "0" [0-7]* INTSIZE?
+	        | CHARPREFIX? "'" ([^'\\\n] | ESCAPE)+ "'", install;
+
+   "float constant" = [0-9]+ DECEXPONENT FLOATSIZE?
+	        | [0-9]* "." [0-9]+ DECEXPONENT? FLOATSIZE?
+	        | [0-9]+ "." DECEXPONENT? FLOATSIZE?
+	        | "0" [xX] [a-fA-F0-9]+ HEXEXPONENT FLOATSIZE?
+	        | "0" [xX] [a-fA-F0-9]* "." [a-fA-F0-9]+ HEXEXPONENT FLOATSIZE?
+	        | "0" [xX] [a-fA-F0-9]+ "." HEXEXPONENT FLOATSIZE?, install;
+
+   "string literal" = (STRINGPREFIX? '"' ([^"\\\n] | ESCAPE)* '"' WHITESPACE*)+, install;
+
+   "...";
+   ">>=";
+   "<<=";
+   "+=";
+   "-=";
+   "*=";
+   "/=";
+   "%=";
+   "&=";
+   "^=";
+   "|=";
+   ">>";
+   "<<";
+   "++";
+   "--";
+   "->";
+   "&&";
+   "||";
+   "<=";
+   ">=";
+   "==";
+   "!=";
+   ";";
+   "{" = "{" | "<%";
+   "}" = "}" | "%>";
+   ",";
+   ":";
+   "=";
+   "(", precedence=1;
+   ")", precedence=2;
+   "[" = "[" | "<:";
+   "]" = "]" | ":>";
+   ".";
+   "&";
+   "!";
+   "~";
+   "-";
+   "+";
+   "*";
+   "/";
+   "%";
+   "<";
+   ">";
+   "^";
+   "|";
+   "?";
+
+   ignore "/*" ([^*] | "*"+ [^*/])* "*"+ "/";
+   ignore "//" ~EOL*;
+   ignore WHITESPACE+;
+   ignore ~"";
+
+DEFAULT
+   START   = <Translation Unit>;
+   CONTEXT = 5;
+   COST    = 20;
+
+PARSER
+   <Primary Expression> -->
+	"identifier"
+      | <Constant>
+      | <String>
+      | "(" <Expression> ")"
+      | <Generic Selection>
+   ;
+
+   <Constant> -->
+	"integer constant"
+      | "float constant"
+      | "enumeration constant"
+   ;
+
+   <Enumeration Constant> -->
+	"identifier"
+   ;
+
+   <String> -->
+	"string literal"
+      | "__func__"
+   ;
+
+   <Generic Selection> -->
+	"_Generic" "(" <Assignment Expression> "," <Generic Assoc List> ")"
+   ;
+
+   <Generic Assoc List> -->
+	<Generic Association>
+      | <Generic Assoc List> "," <Generic Association>
+   ;
+
+   <Generic Association> -->
+	<Type Name> ":" <Assignment Expression>
+      | "default" ':' <Assignment Expression>
+   ;
+
+   <Postfix Expression> -->
+	<Primary Expression>
+      | <Postfix Expression> "[" <Expression> "]"
+      | <Postfix Expression> "(" ")"
+      | <Postfix Expression> "(" <Argument Expression List> ")"
+      | <Postfix Expression> "." "identifier"
+      | <Postfix Expression> "->" "identifier"
+      | <Postfix Expression> "++"
+      | <Postfix Expression> "--"
+      | "(" <Type Name> ")" "{" <Initializer List> "}"
+      | "(" <Type Name> ")" "{" <Initializer List> "," "}"
+   ;
+
+   <Argument Expression List> -->
+	<Assignment Expression>
+      | <Argument Expression List> "," <Assignment Expression>
+   ;
+
+   <Unary Expression> -->
+	<Postfix Expression>
+      | "++" <Unary Expression>
+      | "--" <Unary Expression>
+      | <Unary Operator> <Cast Expression>
+      | "sizeof" <Unary Expression>
+      | "sizeof" "(" <Type Name> ")"
+      | "_Alignof" "(" <Type Name> ")"
+   ;
+
+   <Unary Operator> -->
+	"&"
+      | "*"
+      | "+"
+      | "-"
+      | "~"
+      | "!"
+   ;
+
+   <Cast Expression> -->
+	<Unary Expression>
+      | "(" <Type Name> ")" <Cast Expression>
+   ;
+
+   <Multiplicative Expression> -->
+	<Cast Expression>
+      | <Multiplicative Expression> "*" <Cast Expression>
+      | <Multiplicative Expression> "/" <Cast Expression>
+      | <Multiplicative Expression> "%" <Cast Expression>
+   ;
+
+   <Additive Expression> -->
+	<Multiplicative Expression>
+      | <Additive Expression> "+" <Multiplicative Expression>
+      | <Additive Expression> "-" <Multiplicative Expression>
+   ;
+
+   <Shift Expression> -->
+	<Additive Expression>
+      | <Shift Expression> "<<" <Additive Expression>
+      | <Shift Expression> ">>" <Additive Expression>
+   ;
+
+   <Relational Expression> -->
+	<Shift Expression>
+      | <Relational Expression> "<" <Shift Expression>
+      | <Relational Expression> ">" <Shift Expression>
+      | <Relational Expression> "<=" <Shift Expression>
+      | <Relational Expression> ">=" <Shift Expression>
+   ;
+
+   <Equality Expression> -->
+	<Relational Expression>
+      | <Equality Expression> "==" <Relational Expression>
+      | <Equality Expression> "!=" <Relational Expression>
+   ;
+
+   <And Expression> -->
+	<Equality Expression>
+      | <And Expression> "&" <Equality Expression>
+   ;
+
+   <Exclusive Or Expression> -->
+	<And Expression>
+      | <Exclusive Or Expression> "^" <And Expression>
+   ;
+
+   <Inclusive Or Expression> -->
+	<Exclusive Or Expression>
+      | <Inclusive Or Expression> "|" <Exclusive Or Expression>
+   ;
+
+   <Logical And Expression> -->
+	<Inclusive Or Expression>
+      | <Logical And Expression> "&&" <Inclusive Or Expression>
+   ;
+
+   <Logical Or Expression> -->
+	<Logical And Expression>
+      | <Logical Or Expression> "||" <Logical And Expression>
+   ;
+
+   <Conditional Expression> -->
+	<Logical Or Expression>
+      | <Logical Or Expression> "?" <Expression> ":" <Conditional Expression>
+   ;
+
+   <Assignment Expression> -->
+	<Conditional Expression>
+      | <Unary Expression> <Assignment Operator> <Assignment Expression>
+   ;
+
+   <Assignment Operator> -->
+	"="
+      | "*="
+      | "/="
+      | "%="
+      | "+="
+      | "-="
+      | "<<="
+      | ">>="
+      | "&="
+      | "^="
+      | "|="
+   ;
+
+   <Expression> -->
+	<Assignment Expression>
+      | <Expression> "," <Assignment Expression>
+   ;
+
+   <Constant Expression> -->
+	<Conditional Expression>
+   ;
+
+   <Declaration> -->
+	<Declaration Specifiers> ";"
+      | <Declaration Specifiers> <Init Declarator List> ";"
+      | <Static Assert Declaration>
+   ;
+
+   <Declaration Specifiers> -->
+	<Storage Class Specifier> <Declaration Specifiers>
+      | <Storage Class Specifier>
+      | <Type Specifier> <Declaration Specifiers>
+      | <Type Specifier>
+      | <Type Qualifier> <Declaration Specifiers>
+      | <Type Qualifier>
+      | <Function Specifier> <Declaration Specifiers>
+      | <Function Specifier>
+      | <Alignment Specifier> <Declaration Specifiers>
+      | <Alignment Specifier>
+   ;
+
+   <Init Declarator List> -->
+	<Init Declarator>
+      | <Init Declarator List> "," <Init Declarator>
+   ;
+
+   <Init Declarator> -->
+	<Declarator> "=" <Initializer>
+      | <Declarator>
+   ;
+
+   <Storage Class Specifier> -->
+	"typedef"
+      | "extern"
+      | "static"
+      | "_Thread_local"
+      | "auto"
+      | "register"
+   ;
+
+   <Type Specifier> -->
+	"void"
+      | "char"
+      | "short"
+      | "int"
+      | "long"
+      | "float"
+      | "double"
+      | "signed"
+      | "unsigned"
+      | "_Bool"
+      | "_Complex"
+      | "_Imaginary"
+      | <Atomic Type Specifier>
+      | <Struct or Union Specifier>
+      | <Enum Specifier>
+      | "typedef name"
+   ;
+
+   <Struct or Union Specifier> -->
+	<Struct or Union> "{" <Struct Declaration List> "}"
+      | <Struct or Union> "identifier" "{" <Struct Declaration List> "}"
+      | <Struct or Union> "identifier"
+   ;
+
+   <Struct or Union> -->
+	"struct"
+      | "union"
+   ;
+
+   <Struct Declaration List> -->
+	<Struct Declaration>
+      | <Struct Declaration List> <Struct Declaration>
+   ;
+
+   <Struct Declaration> -->
+	<Specifier Qualifier List> ";"
+      | <Specifier Qualifier List> <Struct Declarator List> ";"
+      | <Static Assert Declaration>
+   ;
+
+   <Specifier Qualifier List> -->
+	<Type Specifier> <Specifier Qualifier List>
+      | <Type Specifier>
+      | <Type Qualifier> <Specifier Qualifier List>
+      | <Type Qualifier>
+   ;
+
+   <Struct Declarator List> -->
+	<Struct Declarator>
+      | <Struct Declarator List> "," <Struct Declarator>
+   ;
+
+   <Struct Declarator> -->
+	":" <Constant Expression>
+      | <Declarator> ":" <Constant Expression>
+      | <Declarator>
+   ;
+
+   <Enum Specifier> -->
+	"enum" "{" <Enumerator List> "}"
+      | "enum" "{" <Enumerator List> "," "}"
+      | "enum" "identifier" "{" <Enumerator List> "}"
+      | "enum" "identifier" "{" <Enumerator List> "," "}"
+      | "enum" "identifier"
+   ;
+
+   <Enumerator List> -->
+	<Enumerator>
+      | <Enumerator List> "," <Enumerator>
+   ;
+
+   <Enumerator> -->
+	<Enumeration Constant> "=" <Constant Expression>
+      | <Enumeration Constant>
+   ;
+
+   <Atomic Type Specifier> -->
+	"_Atomic" "(" <Type Name> ")"
+   ;
+
+   <Type Qualifier> -->
+	"const"
+      | "restrict"
+      | "volatile"
+      | "_Atomic"
+   ;
+
+   <Function Specifier> -->
+	"inline"
+      | "_Noreturn"
+   ;
+
+   <Alignment Specifier> -->
+	"_Alignas" "(" <Type Name> ")"
+      | "_Alignas" "(" <Constant Expression> ")"
+   ;
+
+   <Declarator> -->
+	<Pointer> <Direct Declarator>
+      | <Direct Declarator>
+   ;
+
+   <Direct Declarator> -->
+	"identifier"
+      | "(" <Declarator> ")"
+      | <Direct Declarator> "[" "]"
+      | <Direct Declarator> "[" "*" "]"
+      | <Direct Declarator> "[" "static" <Type Qualifier List> <Assignment Expression> "]"
+      | <Direct Declarator> "[" "static" <Assignment Expression> "]"
+      | <Direct Declarator> "[" <Type Qualifier List> "*" "]"
+      | <Direct Declarator> "[" <Type Qualifier List> "static" <Assignment Expression> "]"
+      | <Direct Declarator> "[" <Type Qualifier List> <Assignment Expression> "]"
+      | <Direct Declarator> "[" <Type Qualifier List> "]"
+      | <Direct Declarator> "[" <Assignment Expression> "]"
+      | <Direct Declarator> "(" <Parameter Type List> ")"
+      | <Direct Declarator> "(" ")"
+      | <Direct Declarator> "(" <Identifier List> ")"
+   ;
+
+   <Pointer> -->
+	"*" <Type Qualifier List> <Pointer>
+      | "*" <Type Qualifier List>
+      | "*" <Pointer>
+      | "*"
+   ;
+
+   <Type Qualifier List> -->
+	<Type Qualifier>
+      | <Type Qualifier List> <Type Qualifier>
+   ;
+
+
+   <Parameter Type List> -->
+	<Parameter List> "," "..."
+      | <Parameter List>
+   ;
+
+   <Parameter List> -->
+	<Parameter Declaration>
+      | <Parameter List> "," <Parameter Declaration>
+   ;
+
+   <Parameter Declaration> -->
+	<Declaration Specifiers> <Declarator>
+      | <Declaration Specifiers> <Abstract Declarator>
+      | <Declaration Specifiers>
+   ;
+
+   <Identifier List> -->
+	"identifier"
+      | <Identifier List> "," "identifier"
+   ;
+
+   <Type Name> -->
+	<Specifier Qualifier List> <Abstract Declarator>
+      | <Specifier Qualifier List>
+   ;
+
+   <Abstract Declarator> -->
+	<Pointer> <Direct Abstract Declarator>
+      | <Pointer>
+      | <Direct Abstract Declarator>
+   ;
+
+   <Direct Abstract Declarator> -->
+	"(" <Abstract Declarator> ")"
+      | "[" "]"
+      | "[" "*" "]"
+      | "[" "static" <Type Qualifier List> <Assignment Expression> "]"
+      | "[" "static" <Assignment Expression> "]"
+      | "[" <Type Qualifier List> "static" <Assignment Expression> "]"
+      | "[" <Type Qualifier List> <Assignment Expression> "]"
+      | "[" <Type Qualifier List> "]"
+      | "[" <Assignment Expression> "]"
+      | <Direct Abstract Declarator> "[" "]"
+      | <Direct Abstract Declarator> "[" "*" "]"
+      | <Direct Abstract Declarator> "[" "static" <Type Qualifier List> <Assignment Expression> "]"
+      | <Direct Abstract Declarator> "[" "static" <Assignment Expression> "]"
+      | <Direct Abstract Declarator> "[" <Type Qualifier List> <Assignment Expression> "]"
+      | <Direct Abstract Declarator> "[" <Type Qualifier List> "static" <Assignment Expression> "]"
+      | <Direct Abstract Declarator> "[" <Type Qualifier List> "]"
+      | <Direct Abstract Declarator> "[" <Assignment Expression> "]"
+      | "(" ")"
+      | "(" <Parameter Type List> ")"
+      | <Direct Abstract Declarator> "(" ")"
+      | <Direct Abstract Declarator> "(" <Parameter Type List> ")"
+   ;
+
+   <Initializer> -->
+	"{" <Initializer List> "}"
+      | "{" <Initializer List> "," "}"
+      | <Assignment Expression>
+   ;
+
+   <Initializer List> -->
+	<Designation> <Initializer>
+      | <Initializer>
+      | <Initializer List> "," <Designation> <Initializer>
+      | <Initializer List> "," <Initializer>
+   ;
+
+   <Designation> -->
+	<Designator List> "="
+   ;
+
+   <Designator List> -->
+	<Designator>
+      | <Designator List> <Designator>
+   ;
+
+   <Designator> -->
+	"[" <Constant Expression> "]"
+      | "." "identifier"
+   ;
+
+   <Static Assert Declaration> -->
+	"_Static_assert" "(" <Constant Expression> "," "string literal" ")" ";"
+   ;
+
+   <Statement> -->
+	<Labeled Statement>
+      | <Compound Statement>
+      | <Expression Statement>
+      | <Selection Statement>
+      | <Iteration Statement>
+      | <Jump Statement>
+   ;
+
+   <Labeled Statement> -->
+	"identifier" ":" <Statement>
+      | "case" <Constant Expression> ":" <Statement>
+      | "default" ":" <Statement>
+   ;
+
+   <Compound Statement> -->
+	"{" "}"
+      | "{"  <Block Item List> "}"
+   ;
+
+   <Block Item List> -->
+	<Block Item>
+      | <Block Item List> <Block Item>
+   ;
+
+   <Block Item> -->
+	<Declaration>
+      | <Statement>
+   ;
+
+   <Expression Statement> -->
+	";"
+      | <Expression> ";"
+   ;
+
+   <Selection Statement> -->
+	"if" "(" <Expression> ")" <Statement> "else" <Statement>
+      | "if" "(" <Expression> ")" <Statement>
+      | "switch" "(" <Expression> ")" <Statement>
+   ;
+
+   <Iteration Statement> -->
+	"while" "(" <Expression> ")" <Statement>
+      | "do" <Statement> "while" "(" <Expression> ")" ";"
+      | "for" "(" <Expression Statement> <Expression Statement> ")" <Statement>
+      | "for" "(" <Expression Statement> <Expression Statement> <Expression> ")" <Statement>
+      | "for" "(" <Declaration> <Expression Statement> ")" <Statement>
+      | "for" "(" <Declaration> <Expression Statement> <Expression> ")" <Statement>
+   ;
+
+   <Jump Statement> -->
+	"goto" "identifier" ";"
+      | "continue" ";"
+      | "break" ";"
+      | "return" ";"
+      | "return" <Expression> ";"
+   ;
+
+   <Translation Unit> -->
+	<External Declaration>
+      | <Translation Unit> <External Declaration>
+   ;
+
+   <External Declaration> -->
+	<Function Definition>
+      | <Declaration>
+   ;
+
+   <Function Definition> -->
+	<Declaration Specifiers> <Declarator> <Declaration List> <Compound Statement>
+      | <Declaration Specifiers> <Declarator> <Compound Statement>
+   ;
+
+   <Declaration List> -->
+	<Declaration>
+      | <Declaration List> <Declaration>
+   ;

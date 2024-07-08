@@ -1,0 +1,74 @@
+IDENT spector3;
+TITLE "Grammar G2 from Efficient Full LR(1) Parser Generation";
+
+OPTIONS
+   shiftreduce, splitstates;
+
+SCANNER
+   "a";
+   "b";
+   "c";
+   "d";
+   "t";
+   "u";
+   "v";
+   "w";
+   "x";
+   "y";
+   "z";
+
+PARSER
+   <S> -->
+	"t" <E> "a"
+      | "t" <F> "b"
+      | "t" <G> "c"
+      | "t" <H> "d"
+      | "u" <E> "b"
+      | "u" <F> "c"
+      | "u" <G> "d"
+      | "u" <H> "a"
+      | "v" <E> "c"
+      | "v" <F> "d"
+      | "v" <G> "a"
+      | "v" <H> "b"
+      | "w" <E> "d"
+      | "w" <F> "a"
+      | "w" <G> "b"
+      | "w" <H> "c"
+   ;
+
+   <E> -->
+	"x" <A>
+      | "y" <D>
+   ;
+
+   <F> -->
+	"x" <B>
+      | "y" <A>
+   ;
+
+   <G> -->
+	"x" <C>
+      | "y" <B>
+   ;
+
+   <H> -->
+	"x" <D>
+      | "y" <C>
+   ;
+
+   <A> -->
+	"z"
+   ;
+
+   <B> -->
+	"z"
+   ;
+
+   <C> -->
+	"z"
+   ;
+
+   <D> -->
+	"z"
+   ;

@@ -1,0 +1,38 @@
+IDENT lookahead;
+TITLE "Lookahead Expression Test";
+
+OPTIONS
+   errorrepair, shiftreduce;
+
+SCANNER
+   "c lookahead" = ("a" | "b")* "abb" / "c", install, ignore case;
+   "d lookahead" = ("a" | "b")* "abb" / "d", install, ignore case;
+   "e or f lookahead" = ("a" | "b")* "abb" / "e" | "f", install, ignore case;
+   "c", install, ignore case;
+   "d", install, ignore case;
+   "e", install, ignore case;
+   "f", install, ignore case;
+   "lower non-lookahead" = "a":"f"+, install;
+   "upper non-lookahead" = [A-F]+, install;
+   ignore ~"";
+
+DEFAULT
+   START = <Input>;
+
+PARSER
+   <Input> -->
+	<Input> <Token>
+      | <Token>
+   ;
+
+   <Token> -->
+	"c lookahead"
+      | "d lookahead"
+      | "e or f lookahead"
+      | "c"
+      | "d"
+      | "e"
+      | "f"
+      | "lower non-lookahead"
+      | 'upper non-lookahead'
+   ;

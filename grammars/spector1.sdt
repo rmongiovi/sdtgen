@@ -1,0 +1,28 @@
+IDENT spector1;
+TITLE "Grammar G1 from Full LR(1) Parser Generation";
+
+OPTIONS
+   shiftreduce, splitstates;
+
+SCANNER
+   "a";
+   "b";
+   "c";
+   "d";
+   "f";
+
+PARSER
+   <S> -->
+	"a" <A> "c"
+      | "a" <B> "d"
+      | "b" <A> "d"
+      | "b" <B> "c"
+   ;
+
+   <A> -->
+	"f"
+   ;
+
+   <B> -->
+	"f"
+   ;

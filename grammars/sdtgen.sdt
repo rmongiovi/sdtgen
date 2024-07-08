@@ -1,0 +1,238 @@
+IDENT sdtgen;
+TITLE "Syntax Directed Translator Generator Version 1.0";
+
+OPTIONS
+   errorrepair, shiftreduce;
+
+DEFINE
+   alpha = "A" : "Z" | "a" : "z";
+   digit = [0-9];
+
+SCANNER
+   "IDENT",						insert = 2, delete = 6, ignore case;
+   "TITLE",						insert = 2, delete = 6, ignore case;
+   "OPTIONS",						insert = 2, delete = 6, ignore case;
+   "DEFINE",						insert = 2, delete = 6, ignore case;
+   "SCANNER",						insert = 4, delete = 6, ignore case;
+   "IGNORE",						insert = 2, delete = 6, ignore case;
+   "PRECEDENCE",					insert = 3, delete = 6, ignore case;
+   "ASSOCIATIVITY",					insert = 3, delete = 6, ignore case;
+   "LEFT",						insert = 3, delete = 6, ignore case;
+   "RIGHT",						insert = 3, delete = 6, ignore case;
+   "NONE",						insert = 2, delete = 6, ignore case;
+   "INSTALL",						insert = 1, delete = 6, ignore case;
+   "INSERT",						insert = 2, delete = 6, ignore case;
+   "DELETE",						insert = 2, delete = 6, ignore case;
+   "CASE",						insert = 1, delete = 6, ignore case;
+   "PARSER",						insert = 4, delete = 6, ignore case;
+   "DEFAULT",						insert = 2, delete = 6, ignore case;
+   "START",						insert = 2, delete = 6, ignore case;
+   "COST",						insert = 2, delete = 6, ignore case;
+   "CONTEXT",						insert = 2, delete = 6, ignore case;
+   "identifier" = (alpha | "_") {alpha | digit | "_"},	insert = 2, delete = 4, install;
+   "symbol"	= "<" (~">" - EOL)+ ">"?,		insert = 2, delete = 4, install;
+   "string"	= "'" {~"'" - EOL} "'"?
+		| '"' {~'"' - EOL} '"'?,		insert = 1, delete = 2, install;
+   "class"      = "[" (~"]" - "\\" - EOL | "\\" ~EOL)+ "]"?, insert = 4, delete = 4, install;
+   "integer"	= digit+,				insert = 1, delete = 4, install;
+   "semantic"	= "@" digit+,				insert = 3, delete = 6, install;
+   "/",							insert = 4, delete = 8;
+   "|",							insert = 2, delete = 4;
+   "-",							insert = 3, delete = 4;
+   "{",							insert = 4, delete = 4;
+   "}",							insert = 3, delete = 2;
+   "?",							insert = 3, delete = 4;
+   "*",							insert = 2, delete = 4;
+   "+",							insert = 3, delete = 4;
+   ":",							insert = 2, delete = 4;
+   "~",							insert = 2, delete = 4;
+   "(",							insert = 2, delete = 4;
+   ")",							insert = 1, delete = 2;
+   "-->",						insert = 3, delete = 4;
+   "=",							insert = 2, delete = 4;
+   ",",							insert = 1, delete = 4;
+   ";",							insert = 2, delete = 4;
+
+   ignore	  "%" {~"%" - EOL} "%"?;		%Comments
+   ignore	  (" " | FF | HT | EOL)+;		%Whitespace
+
+DEFAULT
+   START   = <Input File>;				%Distinguished symbol
+   CONTEXT = 5;						%Number of symbols lookahead
+   COST	   = 20;					%Default error correction cost
+
+PARSER
+   <Input File> -->
+	<Ident> <Title> <Options> <Definitions> <Scanner> <Defaults> <Parser>
+   ;
+
+   <Ident> -->
+	"IDENT" "identifier" ";" @1			%Set translator name
+   ;
+
+   <Title> -->
+	"TITLE" "string" ";" @2				%Set listing title string
+      | ""
+   ;
+
+   <Options> -->
+	"OPTIONS" <Identifier List> ";"
+      | ""
+   ;
+
+   <Definitions> -->
+	"DEFINE" <Definition List>
+      | ""
+   ;
+
+   <Scanner> -->
+	"SCANNER" <Token List> @3			%Finish creation of scanner regular expressions
+   ;
+
+   <Defaults> -->
+	"DEFAULT" <Default List>
+      | ""
+   ;
+
+   <Parser> -->
+	"PARSER" <Production List> @4			%Finish creation of parser productions
+   ;
+
+   <Identifier List> -->
+	<Identifier List> "," "identifier" @5		%Process option
+      | "identifier" @5					%Process option
+   ;
+
+   <Definition List> -->
+	<Definition List> <Definition>
+      | <Definition>
+   ;
+
+   <Definition> -->
+	"identifier" "=" <Expression> ";" @6		%Define regular expression
+   ;
+
+   <Token List> -->
+	<Token List> <Token> @7				%Alternate regular expressions
+      | <Token>
+   ;
+
+   <Token> -->
+	"string" "=" <Regular Expr> <Attributes> ";" @8	%Create token from regular expression
+      | "string" ":" "string" <Attributes> ";" @9	%Create alias for token
+      | "string" <Attributes> ";" @10			%Create token from name string
+      | "IGNORE" <Regular Expr> ";" @11			%Set regular expression should be ignored
+   ;
+
+   <Default List> -->
+	<Default List> <Default>
+      | <Default>
+   ;
+
+   <Default> -->
+	"START" "=" "symbol" ";" @12			%Set start symbol for parser
+      | "COST" "=" "integer" ";" @13			%Set default repair cost
+      | "CONTEXT" "=" "integer" ";" @14			%Set error correction context
+   ;
+
+   <Production List> -->
+	<Production List> <Production> @15		%Add production to grammar
+      | <Production>
+   ;
+
+   <Production> -->
+	"symbol" "-->" <Alternate List> ";" @16		%Join LHS and RHS into production
+   ;
+
+   <Expression> -->
+	<Expression> "|" <Term> @7			%Alternate regular expressions
+      | <Term>
+   ;
+
+   <Term> -->
+	<Term> <Factor> @17				%Concatenate regular expressions
+      | <Factor>
+   ;
+
+   <Factor> -->
+	"{" <Expression> "}" "integer" ":" "integer" @18 %Create range of occurrences
+      | "{" <Expression> "}" "integer" @19		%Create multiple occurrences
+      | "{" <Expression> "}" @20			%Create 0 or more occurrences
+      | <Transition> "*" @20				%Create 0 or more occurrences
+      | <Transition> "+" @21				%Create 1 or more occurrences
+      | <Transition> "?" @22				%Create optional expression
+      | <Transition>
+   ;
+
+   <Transition> -->
+	<Transition> "-" <Element> @23			%Create character difference
+      | <Element>
+   ;
+
+   <Element> -->
+	"~" <Secondary> @24				%Create complement of character
+      | <Secondary>
+   ;
+
+   <Secondary> -->
+	<Primary> ":" <Primary> @25			%Create a range of characters
+      | <Primary>
+   ;
+
+   <Primary> -->
+	"(" <Expression> ")"
+      | "identifier" @26				%Copy a predefined expression
+      | "string" @27					%Create transitions for string
+      | "class" @28					%Create transition for character class
+   ;
+
+   <Regular Expr> -->
+	<Expression Head> <Expression> @17		%Concatenate regular expressions
+      | <Expression Head>
+      | <Expression>
+   ;
+
+   <Expression Head> -->
+	<Expression> "/" @29				%Create lookahead expression
+   ;
+
+   <Attributes> -->
+	"," <Attribute List>
+      | ""
+   ;
+
+   <Attribute List> -->
+	<Attribute List> "," <Attribute>
+      | <Attribute>
+   ;
+
+   <Attribute> -->
+	"PRECEDENCE" "=" "integer" @30			%Set token precedence
+      | "ASSOCIATIVITY" "=" "LEFT" @31			%Set token is left associative
+      | "ASSOCIATIVITY" "=" "RIGHT" @32			%Set token is right associative
+      | "ASSOCIATIVITY" "=" "NONE" @33			%Set token has no associativity
+      | "INSERT" "=" "integer" @34			%Set token insertion cost
+      | "DELETE" "=" "integer" @35			%Set token deletion cost
+      | "INSTALL" @36					%Set token should be installed
+      | "IGNORE" "CASE" @37				%Set token is case insignificant
+   ;
+
+   <Alternate List> -->
+	<Alternate List> "|" <Alternate> @7		%Add alternate to list
+      | <Alternate>
+   ;
+
+   <Alternate> -->
+	<Symbol List> "semantic" @38			%Set semantic routine number
+      | <Symbol List>
+   ;
+
+   <Symbol List> -->
+	<Symbol List> <Symbol> @17			%Concatenate symbol list
+      | <Symbol>
+   ;
+
+   <Symbol> -->
+	"symbol" @39					%Create nonterminal
+      | "string" @40					%Create terminal
+   ;

@@ -1,0 +1,28 @@
+IDENT deremer1;
+TITLE "Grammar G3 from Practical Translators for LR(k) Languages";
+
+OPTIONS
+   shiftreduce, splitstates;
+
+SCANNER
+   "a";
+   "b";
+   "c";
+   "d";
+   "e";
+
+PARSER
+   <E> -->
+	"a" <A> "d"
+      | "a" <B> "c"
+      | "b" <A> "c"
+      | "b" <B> "d"
+   ;
+
+   <A> -->
+	"e"
+   ;
+
+   <B> -->
+	"e"
+   ;

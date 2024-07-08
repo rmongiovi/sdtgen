@@ -1,0 +1,32 @@
+IDENT ambiguous;
+TITLE "Ambiguous Grammar";
+
+OPTIONS
+   ambiguous, shiftreduce;
+
+SCANNER
+   "+",           precedence=4, associativity=left;
+   "-",           precedence=4, associativity=left;
+   "*",           precedence=3, associativity=left;
+   "/",           precedence=3, associativity=left;
+   "UMINUS": "-", precedence=2, associativity=left;
+   "^",           precedence=1, associativity=right;
+   "(";
+   ")";
+   "int" = [0-9]+, install;
+   "EOL" = EOL;
+
+PARSER
+   <line> -->
+	<expr> "EOL"
+   ;
+   <expr> -->
+	<expr> "+" <expr>
+      | <expr> "-" <expr>
+      | <expr> "*" <expr>
+      | <expr> "/" <expr>
+      | "UMINUS" <expr>
+      | <expr> "^" <expr>
+      | "(" <expr> ")"
+      | "int"
+   ;

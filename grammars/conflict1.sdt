@@ -1,0 +1,26 @@
+IDENT conflict1;
+TITLE "Reduce-reduce Conflict with Ancestor Loop";
+
+OPTIONS
+   %shiftreduce,% splitstates;
+
+SCANNER
+   "a";
+   "b";
+   "c";
+
+PARSER
+   <S> -->
+	<A> "b"
+      | <B> "c"
+   ;
+
+   <A> -->
+	"a" "a" <A> "c"
+      | "a" "a"
+   ;
+
+   <B> -->
+	"a" "a" <B> "b"
+      | "a" "a"
+   ;

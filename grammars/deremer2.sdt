@@ -1,0 +1,30 @@
+IDENT deremer2;
+TITLE "Grammar G4 from Practical Translators for LR(k) Languages";
+
+OPTIONS
+   shiftreduce, splitstates;
+
+SCANNER
+   "a";
+   "b";
+   "c";
+   "d";
+   "e";
+
+PARSER
+   <E> -->
+	"a" <A> "d"
+      | "a" <B> "c"
+      | "b" <A> "c"
+      | "b" <B> "d"
+   ;
+
+   <A> -->
+	"e" <A>
+      | "e"
+   ;
+
+   <B> -->
+	"e" <B>
+      | "e"
+   ;

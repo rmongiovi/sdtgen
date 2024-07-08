@@ -1,0 +1,20 @@
+IDENT rohrich;
+TITLE "Rohrich Test Grammar";
+
+OPTIONS
+   errorrepair, shiftreduce;
+
+SCANNER
+   "begin";
+   "end";
+   "real";
+   "identifier";
+   "procedure";
+   ";";
+
+PARSER
+   <block> --> "begin" <declarations> <statements> "end";
+   <declarations> --> <declarations> <declaration> ";" | "";
+   <declaration> --> "procedure" "identifier" ";" <statement> | "real" "identifier";
+   <statements> --> <statements> ";" <statement> | <statement>;
+   <statement> --> <block> | "identifier";
